@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>INT GATE ALLOCATION - US-BANGLA AIRLINES</title>
+  
+  <!-- Aviation Cockpit Fonts & Export Engine -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,600;0,700;0,800;1,700&family=Montserrat:ital,wght@0,500;0,600;0,700;0,800;0,900;1,800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    /* ---------------- NIGHT THEME (DEFAULT) ---------------- */
+    :root {
+      --bg-main: #040d1a;
+      --panel-bg: #091a35;
+      --panel-border: #163666;
+      --input-bg: #040d1c;
+      --input-border: #1a417a;
+      --text-main: #e2e8f0;
+      --text-muted: #8fa5c4;
+      --cyan: #00e5ff;
+      --blue: #0088ff;
+      --gold: #ffb703;
+      --red: #e63946;
+      --green: #10b981;
+
+      /* Report Night Theme */
+      --rpt-bg: #031533;
+      --rpt-border: #143e77;
+      --rpt-header-bg: rgba(2, 16, 38, 0.90);
+      --rpt-table-bg: rgba(2, 16, 38, 0.82);
+      --rpt-table-header-bg: #072248;
+      --rpt-table-text: #ffffff;
+      --rpt-cell-border: #143e77;
+      --rpt-box-bg: rgba(2, 16, 38, 0.88);
+      --rpt-footer-bg: #020f26;
+      --rpt-sub-color: #00e5ff;
+      --rpt-watermark-img: url('https://images.unsplash.com/photo-1542296332-2e4473faf563?q=80&w=1600&auto=format&fit=crop');
+      --rpt-watermark-tint: radial-gradient(circle at center, rgba(3, 21, 51, 0.75) 0%, rgba(1, 10, 28, 0.92) 100%);
+      --rpt-watermark-opacity: 0.28;
+    }
+
+    /* ---------------- DAY THEME ---------------- */
+    body.day-mode {
+      --bg-main: #eef4fb;
+      --panel-bg: #ffffff;
+      --panel-border: #c8d8ec;
+      --input-bg: #f5f8fc;
+      --input-border: #b8cee8;
+      --text-main: #0c1e38;
+      --text-muted: #556e91;
+      --cyan: #0066cc;
+      --blue: #0056b3;
+      --gold: #d97706;
+      --red: #d90429;
+
+      /* Report Day Theme */
+      --rpt-bg: #f0f4fa;
+      --rpt-border: #99b8dc;
+      --rpt-header-bg: rgba(255, 255, 255, 0.94);
+      --rpt-table-bg: rgba(255, 255, 255, 0.88);
+      --rpt-table-header-bg: #03204d;
+      --rpt-table-text: #041838;
+      --rpt-cell-border: #b8cce2;
+      --rpt-box-bg: rgba(255, 255, 255, 0.92);
+      --rpt-footer-bg: #031b3e;
+      --rpt-sub-color: #005bb5;
+      --rpt-watermark-img: url('https://images.unsplash.com/photo-1520437358207-323b43b50729?q=80&w=1600&auto=format&fit=crop');
+      --rpt-watermark-tint: radial-gradient(circle at center, rgba(240, 244, 250, 0.65) 0%, rgba(225, 235, 248, 0.88) 100%);
+      --rpt-watermark-opacity: 0.35;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Montserrat', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===================================================
+       1. LOGIN PAGE (COCKPIT HUD VIBE)
+       =================================================== */
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #0a2042 0%, #020712 100%);
+      z-index: 99999;
+      padding: 20px;
+    }
+
+    .runway-grid {
+      position: absolute;
+      inset: 0;
+      background: 
+        linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      perspective: 500px;
+      transform: perspective(300px) rotateX(25deg);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .runway-lights {
+      position: absolute;
+      width: 4px;
+      height: 100%;
+      background: repeating-linear-gradient(to bottom, #ffb703, #ffb703 30px, transparent 30px, transparent 70px);
+      opacity: 0.35;
+      animation: runwayScroll 3s linear infinite;
+    }
+
+    @keyframes runwayScroll {
+      0% { transform: translateY(-100px); }
+      100% { transform: translateY(100px); }
+    }
+
+    .login-card {
+      position: relative;
+      background: rgba(9, 26, 53, 0.88);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      backdrop-filter: blur(14px);
+      padding: 50px 35px;
+      border-radius: 20px;
+      box-shadow: 0 0 50px rgba(0, 136, 255, 0.25);
+      text-align: center;
+      max-width: 460px;
+      width: 100%;
+      z-index: 10;
+    }
+
+    .radar-icon {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 20px auto;
+      border: 2px solid var(--cyan);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--cyan);
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+      animation: pulseRadar 2.5s infinite;
+    }
+
+    @keyframes pulseRadar {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); }
+      50% { transform: scale(1.08); box-shadow: 0 0 25px rgba(0, 229, 255, 0.7); }
+    }
+
+    .login-title {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(0, 136, 255, 0.6);
+    }
+
+    .login-subtitle {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--red);
+      letter-spacing: 3px;
+      margin-bottom: 22px;
+    }
+
+    .typing-box {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 14px;
+      color: var(--cyan);
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px dashed rgba(0, 229, 255, 0.35);
+      padding: 10px 18px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      display: inline-block;
+      min-height: 42px;
+    }
+
+    .typing-cursor {
+      display: inline-block;
+      width: 8px;
+      height: 14px;
+      background: var(--cyan);
+      margin-left: 5px;
+      animation: blink 0.8s infinite;
+    }
+
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    .btn-login {
+      background: linear-gradient(135deg, #0088ff, #0051ba);
+      color: #ffffff;
+      border: none;
+      padding: 15px 30px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      box-shadow: 0 8px 25px rgba(0, 136, 255, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    /* ===================================================
+       2. DASHBOARD
+       =================================================== */
+    #dashboard-screen {
+      display: none;
+      padding: 18px 15px 70px 15px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .dash-topbar {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+    }
+
+    .dash-topbar h2 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dash-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-mode {
+      background: rgba(0, 136, 255, 0.15);
+      border: 1px solid var(--blue);
+      color: var(--text-main);
+    }
+    .btn-mode:hover { background: rgba(0, 136, 255, 0.25); }
+    .btn-primary { background: #0070f3; color: white; }
+    .btn-primary:hover { background: #005bc2; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+
+    .editor-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 10px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-group label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .field-group input, .field-group select {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      outline: none;
+    }
+
+    .field-group input:focus, .field-group select:focus {
+      border-color: var(--cyan);
+    }
+
+    /* Officer Pool Box */
+    .officer-pool-box {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 15px;
+    }
+
+    .officer-input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .officer-input-row input {
+      flex: 1;
+      background: var(--panel-bg);
+      border: 1px solid var(--input-border);
+      padding: 9px 14px;
+      color: var(--text-main);
+      border-radius: 6px;
+      font-size: 13px;
+      text-transform: uppercase;
+      outline: none;
+    }
+
+    .officer-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 38px;
+      align-items: center;
+    }
+
+    .officer-pill {
+      background: rgba(0, 136, 255, 0.15);
+      border: 1px solid var(--blue);
+      color: var(--text-main);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .officer-pill span.del {
+      cursor: pointer;
+      color: var(--red);
+      font-weight: bold;
+    }
+
+    /* Table Container */
+    .table-container {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--panel-border);
+    }
+
+    .dash-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+      background: var(--input-bg);
+    }
+
+    .dash-table th, .dash-table td {
+      border: 1px solid var(--panel-border);
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    .dash-table th {
+      background: var(--panel-bg);
+      color: var(--cyan);
+      font-size: 11.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .dash-table input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 6px 8px;
+      color: var(--text-main);
+      font-weight: 700;
+      border-radius: 4px;
+      outline: none;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+
+    .dash-table input:focus {
+      border-color: var(--cyan);
+      background: var(--panel-bg);
+    }
+
+    /* Cell Trigger Button */
+    .popup-trigger-btn {
+      width: 100%;
+      background: var(--panel-bg);
+      border: 1px solid var(--input-border);
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+      cursor: pointer;
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .popup-trigger-btn:hover {
+      border-color: var(--cyan);
+    }
+
+    /* ===================================================
+       UNIVERSAL FLOATING POPUP MODAL
+       =================================================== */
+    #global-dropdown-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 999999;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-box {
+      background: var(--panel-bg);
+      border: 2px solid var(--cyan);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+      overflow: hidden;
+      animation: modalPop 0.2s ease-out;
+    }
+
+    @keyframes modalPop {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-header {
+      padding: 14px 18px;
+      background: rgba(0, 136, 255, 0.15);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h4 {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--cyan);
+      text-transform: uppercase;
+    }
+
+    .modal-body {
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .modal-option-row {
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .modal-option-row:hover {
+      background: rgba(0, 229, 255, 0.12);
+    }
+
+    .modal-option-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--cyan);
+    }
+
+    .modal-footer {
+      padding: 12px 18px;
+      background: rgba(0,0,0,0.2);
+      border-top: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* ===================================================
+       3. FINAL REPORT (OPTIMIZED COLUMN SIZES & BIGGER TEXT)
+       =================================================== */
+    #report-wrapper {
+      display: none;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 25px 15px;
+      min-height: 100vh;
+      background: #01060f;
+    }
+
+    .report-card-container {
+      width: 1180px;
+      background: var(--rpt-bg);
+      border: 2px solid var(--rpt-border);
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+      color: var(--rpt-table-text);
+    }
+
+    /* Watermark Backdrop */
+    .report-watermark-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: var(--rpt-watermark-opacity);
+      background-image: var(--rpt-watermark-img);
+      background-position: center center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      filter: saturate(0.6) contrast(1.15);
+      mix-blend-mode: luminosity;
+    }
+
+    .report-overlay-tint {
+      position: absolute;
+      inset: 0;
+      background: var(--rpt-watermark-tint);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Report Header */
+    .rpt-modern-header {
+      position: relative;
+      z-index: 3;
+      padding: 18px 26px;
+      border-bottom: 2px solid var(--rpt-border);
+      background: var(--rpt-header-bg);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .rpt-header-titles {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .rpt-hud-badge {
+      width: 44px;
+      height: 44px;
+      border: 2px solid var(--rpt-sub-color);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--rpt-sub-color);
+      font-size: 22px;
+      background: rgba(0, 229, 255, 0.08);
+    }
+
+    .rpt-title-main {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--rpt-table-text);
+      letter-spacing: 2px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .rpt-title-sub {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--rpt-sub-color);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* US-BANGLA AIRLINES BRANDING */
+    .rpt-branding-box {
+      text-align: right;
+      border-left: 2px solid var(--rpt-border);
+      padding-left: 18px;
+    }
+
+    .rpt-brand-name {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 22px;
+      font-weight: 900;
+      font-style: italic;
+      color: #ff3344;
+      letter-spacing: 1px;
+      line-height: 1.1;
+    }
+
+    .rpt-brand-slogan {
+      font-size: 13px;
+      font-weight: 800;
+      font-style: italic;
+      color: var(--gold);
+      letter-spacing: 2px;
+      margin-top: 3px;
+    }
+
+    /* Date & Shift Badge */
+    .rpt-date-container {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      justify-content: center;
+      margin: 14px 0 10px 0;
+    }
+
+    .rpt-date-badge {
+      background: var(--rpt-header-bg);
+      border: 1.5px solid var(--rpt-sub-color);
+      color: var(--rpt-table-text);
+      padding: 6px 28px;
+      border-radius: 8px;
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Allocation Table - OPTIMIZED COLUMN SIZES */
+    .rpt-table-wrapper {
+      position: relative;
+      z-index: 3;
+      padding: 4px 22px;
+    }
+
+    .rpt-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1.5px solid var(--rpt-border);
+      background: var(--rpt-table-bg);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .rpt-table thead tr {
+      background: var(--rpt-table-header-bg);
+    }
+
+    .rpt-table th {
+      padding: 10px 4px;
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #ffffff;
+      border: 1px solid var(--rpt-cell-border);
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .rpt-table tbody tr {
+      border-bottom: 1px solid var(--rpt-cell-border);
+    }
+
+    /* BIGGER TEXT FOR COCKPIT READABILITY */
+    .rpt-table td {
+      padding: 9px 6px;
+      text-align: center;
+      font-size: 15.5px; /* Increased */
+      font-weight: 800;
+      color: var(--rpt-table-text);
+      border: 1px solid var(--rpt-cell-border);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    /* Badges */
+    .rpt-num-pill {
+      display: inline-block;
+      width: 36px;
+      height: 26px;
+      line-height: 26px;
+      border-radius: 5px;
+      color: #fff;
+      font-weight: 900;
+      font-size: 14.5px;
+    }
+
+    .bg-num-1 { background: #0070c0; }
+    .bg-num-2 { background: #009933; }
+    .bg-num-3 { background: #7030a0; }
+    .bg-num-4 { background: #ed7d31; }
+    .bg-num-5 { background: #c00000; }
+    .bg-num-6 { background: #0044aa; }
+    .bg-num-7 { background: #103375; }
+
+    /* Checksheet Row */
+    .rpt-checksheet-box {
+      position: relative;
+      z-index: 3;
+      margin: 8px 22px;
+      border: 1px solid var(--rpt-border);
+      border-radius: 6px;
+      padding: 8px 16px;
+      background: var(--rpt-box-bg);
+      display: flex;
+      font-size: 15px; /* Increased */
+      font-weight: 900;
+      color: var(--rpt-table-text);
+    }
+
+    .rpt-check-l { width: 50%; text-align: center; border-right: 1px solid var(--rpt-border); }
+    .rpt-check-r { width: 50%; text-align: center; color: var(--rpt-sub-color); }
+
+    /* Notes & Associate Strip */
+    .rpt-brief-grid {
+      position: relative;
+      z-index: 3;
+      margin: 8px 22px 14px 22px;
+      border: 1px solid var(--rpt-border);
+      border-radius: 6px;
+      background: var(--rpt-box-bg);
+      display: grid;
+      grid-template-columns: 360px 180px 1fr 240px;
+      overflow: hidden;
+    }
+
+    .brief-note-box {
+      padding: 8px 14px;
+      border-right: 1px solid var(--rpt-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .brief-note-box span {
+      color: #ff3344;
+      font-weight: 900;
+      font-size: 14px; /* Increased */
+      line-height: 1.4;
+      text-transform: uppercase;
+    }
+
+    .brief-asso-label {
+      border-right: 1px solid var(--rpt-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--rpt-table-text);
+      text-transform: uppercase;
+    }
+
+    .brief-asso-list {
+      grid-column: span 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brief-asso-row {
+      display: grid;
+      grid-template-columns: 1fr 1.3fr;
+      border-bottom: 1px solid var(--rpt-border);
+      padding: 7px 12px;
+      font-size: 14.5px; /* Increased */
+      font-weight: 800;
+      color: var(--rpt-table-text);
+      text-transform: uppercase;
+    }
+
+    .brief-asso-row:last-child { border-bottom: none; }
+    .brief-asso-row span:first-child { border-right: 1px solid var(--rpt-border); padding-right: 8px; }
+    .brief-asso-row span:last-child { text-align: center; color: var(--rpt-sub-color); }
+
+    /* Bottom 3 Mandatory Steps */
+    .rpt-bottom-steps {
+      position: relative;
+      z-index: 3;
+      background: var(--rpt-footer-bg);
+      border-top: 1px solid var(--rpt-border);
+      padding: 10px 22px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 15px;
+    }
+
+    .step-unit {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-unit .num {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 40px;
+      font-weight: 900;
+      color: #ffb703;
+      line-height: 1;
+    }
+
+    .step-unit-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .step-unit-text .top {
+      font-size: 12px;
+      font-weight: 900;
+      color: #ffb703;
+      letter-spacing: 0.5px;
+    }
+
+    .step-unit-text .bot {
+      font-size: 12px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    @media (max-width: 768px) {
+      .login-card { padding: 35px 22px; }
+      .login-title { font-size: 22px; }
+      .dash-topbar { flex-direction: column; align-items: stretch; }
+      .dash-actions { justify-content: stretch; }
+      .dash-actions .btn { flex: 1; justify-content: center; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===================================================
+       1. LOGIN PAGE
+       =================================================== -->
+  <div id="login-screen">
+    <div class="runway-grid"></div>
+    <div class="runway-lights" style="left: 20%;"></div>
+    <div class="runway-lights" style="right: 20%;"></div>
+
+    <div class="login-card">
+      <div class="radar-icon">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 8a2 2 0 1 1 2-2 2 2 0 0 1-2 2z"/><line x1="12" y1="12" x2="20" y2="4"/></svg>
+      </div>
+
+      <h1 class="login-title">INT GATE ALLOCATION</h1>
+      <h2 class="login-subtitle">US-BANGLA AIRLINES</h2>
+
+      <div class="typing-box">
+        <span id="typewriter-target"></span><span class="typing-cursor"></span>
+      </div>
+
+      <button class="btn-login" onclick="enterDashboard()">
+        <span>ENTER FLIGHT OPERATIONS</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================================================
+       2. DASHBOARD
+       =================================================== -->
+  <div id="dashboard-screen">
+    <div class="dash-topbar">
+      <h2>
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>
+        Flight Operations Gate Control
+      </h2>
+      <div class="dash-actions">
+        <button class="btn btn-mode" id="theme-toggle-btn" onclick="toggleDayNightMode()">☀️ Day Mode</button>
+        <button class="btn btn-primary" onclick="openPreview()">👁 Preview Report</button>
+        <button class="btn btn-success" onclick="generateAndDownloadJPG()">📥 Download JPG</button>
+        <button class="btn btn-danger" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- General Parameters & ADD OFFICER -->
+    <div class="editor-card">
+      <div class="card-title">1. Schedule & Officer Deployment</div>
+
+      <div class="form-grid">
+        <div class="field-group">
+          <label>Operational Date</label>
+          <input type="date" id="input-date" onchange="autoFormatDateText(); saveToStorage();" />
+        </div>
+        <div class="field-group">
+          <label>Date Display Tag</label>
+          <input type="text" id="input-date-text" placeholder="e.g. 05 SEPT 26" oninput="saveToStorage()" />
+        </div>
+        <div class="field-group">
+          <label>Session / Shift</label>
+          <select id="input-session" onchange="saveToStorage()">
+            <option value="MORNING">MORNING</option>
+            <option value="EVENING" selected>EVENING</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- BOX: ADD OFFICER POOL -->
+      <div class="officer-pool-box">
+        <div style="font-size:12px; font-weight:800; color:var(--cyan); text-transform:uppercase; margin-bottom:8px;">
+          ➕ ADD OFFICER (Allocated Gate Staff Pool)
+        </div>
+        <div class="officer-input-row">
+          <input type="text" id="officer-input" placeholder="Type staff name (e.g. MEHEDI) and press Enter or Add" onkeydown="if(event.key==='Enter') addOfficerFromInput()" />
+          <button class="btn btn-primary" onclick="addOfficerFromInput()">+ Add</button>
+        </div>
+        <div class="officer-tags" id="officer-tags-container"></div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field-group">
+          <label>Gate Checksheet Staff</label>
+          <select id="input-checksheet-staff" onchange="saveToStorage()">
+            <option value="">-- Select Staff --</option>
+          </select>
+        </div>
+        <div class="field-group" style="grid-column: span 2;">
+          <label>Operations / Briefing Note</label>
+          <input type="text" id="input-note" placeholder="e.g. MEET 1445 AT C5 GATE FOR BRIFING" oninput="saveToStorage()" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Flight Gate Allocations -->
+    <div class="editor-card">
+      <div class="card-title">
+        <span>2. Flight Gate Allocations</span>
+        <button class="btn btn-primary" style="padding:5px 12px; font-size:11.5px;" onclick="addFlightRow()">+ Add Flight</button>
+      </div>
+      
+      <div class="table-container">
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th width="45">#</th>
+              <th width="140">Flight No (e.g. 101)</th>
+              <th width="110">Gate No (e.g. 1A)</th>
+              <th width="110">Time (e.g. 1000)</th>
+              <th width="200">Gate Start</th>
+              <th width="200">Boarding</th>
+              <th width="200">Paging</th>
+              <th width="60">Del</th>
+            </tr>
+          </thead>
+          <tbody id="flights-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Associate Staff Allocation -->
+    <div class="editor-card">
+      <div class="card-title">
+        <span>3. Associate Staff Pool</span>
+        <button class="btn btn-primary" style="padding:5px 12px; font-size:11.5px;" onclick="addAssociateRow()">+ Add Associate</button>
+      </div>
+
+      <div class="table-container">
+        <table class="dash-table" style="min-width: 650px;">
+          <thead>
+            <tr>
+              <th>Associate Staff Name</th>
+              <th>Assigned Duty / Desk (Click to Select)</th>
+              <th width="70">Del</th>
+            </tr>
+          </thead>
+          <tbody id="associates-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================
+       UNIVERSAL FLOATING POPUP MODAL
+       =================================================== -->
+  <div id="global-dropdown-modal" onclick="closeModalOnOutsideClick(event)">
+    <div class="modal-box" id="modal-box-content">
+      <div class="modal-header">
+        <h4 id="modal-title">Select Allocated Staff</h4>
+        <button class="btn btn-danger" style="padding: 2px 8px; font-size:12px;" onclick="closeDropdownModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modal-options-list"></div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeDropdownModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================
+       3. FINAL REPORT (OPTIMIZED PROPORTIONS)
+       =================================================== -->
+  <div id="report-wrapper">
+    <div style="position: fixed; top: 18px; right: 20px; z-index: 999999; display: flex; gap: 10px;">
+      <button class="btn btn-mode" style="background:#091b38; color:#fff;" onclick="closePreview()">← Editor</button>
+      <button class="btn btn-success" onclick="generateAndDownloadJPG()">📥 Export JPG</button>
+    </div>
+
+    <div class="report-card-container" id="report-target">
+      <div class="report-watermark-layer"></div>
+      <div class="report-overlay-tint"></div>
+
+      <!-- Header -->
+      <div class="rpt-modern-header">
+        <div class="rpt-header-titles">
+          <div class="rpt-hud-badge">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>
+          </div>
+          <div>
+            <div class="rpt-title-main">INT GATE ALLOCATION</div>
+            <div class="rpt-title-sub">TOGETHER FOR A SMOOTHER JOURNEY</div>
+          </div>
+        </div>
+
+        <div class="rpt-branding-box">
+          <div class="rpt-brand-name">US-BANGLA AIRLINES</div>
+          <div class="rpt-brand-slogan">FLY FAST - FLY SAFE</div>
+        </div>
+      </div>
+
+      <!-- Date & Session Badge -->
+      <div class="rpt-date-container">
+        <div class="rpt-date-badge">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="rpt-date-text">05 SEPT 26 (EVENING)</span>
+        </div>
+      </div>
+
+      <!-- Allocation Table: Slimmer FLIGHT, GATE, TIME columns & Expanded Staff Columns -->
+      <div class="rpt-table-wrapper">
+        <table class="rpt-table">
+          <thead>
+            <tr>
+              <th style="width: 55px;">#</th>
+              <th style="width: 125px;">✈ FLIGHT NO</th>
+              <th style="width: 105px;">🗄 GATE NO</th>
+              <th style="width: 110px;">🕒 TIME</th>
+              <th style="width: 250px;">👤 GATE START</th>
+              <th style="width: 250px;">👥 BOARDING</th>
+              <th style="width: 250px;">📢 PAGING</th>
+            </tr>
+          </thead>
+          <tbody id="rpt-flights-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Checksheet Row -->
+      <div class="rpt-checksheet-box">
+        <div class="rpt-check-l">GATE CHECKSHEET =</div>
+        <div class="rpt-check-r" id="rpt-checksheet-text">-</div>
+      </div>
+
+      <!-- Notes & Associate Strip -->
+      <div class="rpt-brief-grid">
+        <div class="brief-note-box">
+          <span id="rpt-note-text">NOTE : NO BRIEFING NOTE</span>
+        </div>
+        <div class="brief-asso-label">ASSOCIATE-</div>
+        <div class="brief-asso-list" id="rpt-associates-list"></div>
+      </div>
+
+      <!-- Bottom Mandatory Procedure Bar -->
+      <div class="rpt-bottom-steps">
+        <div class="step-unit">
+          <div style="font-size:28px;">📋</div>
+          <div class="num">1</div>
+          <div class="step-unit-text">
+            <span class="top">CHECK THE FIDS</span>
+            <span class="bot">BEFORE START GATE</span>
+          </div>
+        </div>
+        <div class="step-unit">
+          <div style="font-size:28px;">📻</div>
+          <div class="num">2</div>
+          <div class="step-unit-text">
+            <span class="top">CHECK THE EQUIPMENT</span>
+            <span class="bot">BEFORE START</span>
+          </div>
+        </div>
+        <div class="step-unit">
+          <div style="font-size:28px;">📢</div>
+          <div class="num">3</div>
+          <div class="step-unit-text">
+            <span class="top">MAKE THE ANNOUNCEMENT</span>
+            <span class="bot">BEFORE START</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================
+       JAVASCRIPT LOGIC WITH AUTO-PERSISTENCE
+       =================================================== -->
+  <script>
+    // 1. Typewriter Animation
+    const typePhrase = "build by radoan rasel";
+    const typeElem = document.getElementById("typewriter-target");
+    let charIdx = 0, isDeleting = false;
+
+    function typewriterLoop() {
+      typeElem.textContent = typePhrase.substring(0, charIdx);
+      if (!isDeleting && charIdx < typePhrase.length) {
+        charIdx++;
+        setTimeout(typewriterLoop, 100);
+      } else if (isDeleting && charIdx > 0) {
+        charIdx--;
+        setTimeout(typewriterLoop, 60);
+      } else {
+        isDeleting = !isDeleting;
+        setTimeout(typewriterLoop, isDeleting ? 1800 : 500);
+      }
+    }
+    typewriterLoop();
+
+    // 2. Day / Night Mode Handler
+    let isDayMode = false;
+    function toggleDayNightMode() {
+      isDayMode = !isDayMode;
+      const btn = document.getElementById('theme-toggle-btn');
+      if (isDayMode) {
+        document.body.classList.add('day-mode');
+        btn.textContent = '🌙 Night Mode';
+      } else {
+        document.body.classList.remove('day-mode');
+        btn.textContent = '☀️ Day Mode';
+      }
+      saveToStorage();
+    }
+
+    // 3. Navigation
+    function enterDashboard() {
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("dashboard-screen").style.display = "block";
+    }
+
+    // LOGOUT: COMPLETELY CLEARS LOCAL DATA FOR A FRESH START NEXT TIME
+    function logout() {
+      if (confirm("Are you sure you want to log out? All session data will be erased for safety.")) {
+        localStorage.removeItem('usb_gate_ops_data');
+        resetFreshState();
+        document.getElementById("dashboard-screen").style.display = "none";
+        document.getElementById("report-wrapper").style.display = "none";
+        document.getElementById("login-screen").style.display = "flex";
+      }
+    }
+
+    // 4. State Management (Starts Fresh unless restored from device storage)
+    let officerPool = [];
+    let flights = [];
+    let associates = [];
+
+    const badgeColors = ["bg-num-1", "bg-num-2", "bg-num-3", "bg-num-4", "bg-num-5", "bg-num-6", "bg-num-7"];
+
+    function resetFreshState() {
+      officerPool = [];
+      flights = [{ flight: "", gate: "", time: "", gateStart: [], boarding: [], paging: [] }];
+      associates = [{ name: "", role: "PAGING" }];
+      document.getElementById('input-note').value = "";
+      initDate();
+      renderOfficerTags();
+      updateChecksheetSelect();
+      renderFlightTable();
+      renderAssociateTable();
+    }
+
+    // Device Storage Auto-Save Engine
+    function saveToStorage() {
+      const data = {
+        officerPool,
+        flights,
+        associates,
+        dateVal: document.getElementById('input-date').value,
+        dateText: document.getElementById('input-date-text').value,
+        session: document.getElementById('input-session').value,
+        checksheetStaff: document.getElementById('input-checksheet-staff').value,
+        note: document.getElementById('input-note').value,
+        isDayMode
+      };
+      localStorage.setItem('usb_gate_ops_data', JSON.stringify(data));
+    }
+
+    function loadFromStorage() {
+      const stored = localStorage.getItem('usb_gate_ops_data');
+      if (stored) {
+        try {
+          const d = JSON.parse(stored);
+          officerPool = d.officerPool || [];
+          flights = d.flights || [];
+          associates = d.associates || [];
+          
+          if (flights.length === 0) flights = [{ flight: "", gate: "", time: "", gateStart: [], boarding: [], paging: [] }];
+          if (associates.length === 0) associates = [{ name: "", role: "PAGING" }];
+
+          if (d.dateVal) document.getElementById('input-date').value = d.dateVal;
+          if (d.dateText) document.getElementById('input-date-text').value = d.dateText;
+          if (d.session) document.getElementById('input-session').value = d.session;
+          if (d.note) document.getElementById('input-note').value = d.note;
+
+          renderOfficerTags();
+          updateChecksheetSelect();
+          if (d.checksheetStaff) document.getElementById('input-checksheet-staff').value = d.checksheetStaff;
+
+          if (d.isDayMode) {
+            isDayMode = true;
+            document.body.classList.add('day-mode');
+            document.getElementById('theme-toggle-btn').textContent = '🌙 Night Mode';
+          }
+
+          renderFlightTable();
+          renderAssociateTable();
+          return;
+        } catch(e) {
+          console.error("Storage parse error", e);
+        }
+      }
+      resetFreshState();
+    }
+
+    // Date Auto Init
+    function initDate() {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      document.getElementById('input-date').value = `${yyyy}-${mm}-${dd}`;
+      autoFormatDateText();
+    }
+
+    function autoFormatDateText() {
+      const val = document.getElementById('input-date').value;
+      if (!val) return;
+      const [year, month, day] = val.split("-");
+      const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"];
+      const mText = months[parseInt(month, 10) - 1] || "SEPT";
+      document.getElementById('input-date-text').value = `${day} ${mText} ${year.slice(-2)}`;
+    }
+
+    // 5. Officer Pool Logic
+    function addOfficerFromInput() {
+      const inp = document.getElementById('officer-input');
+      const name = inp.value.trim().toUpperCase();
+      if (!name) return;
+      if (!officerPool.includes(name)) {
+        officerPool.push(name);
+        inp.value = "";
+        renderOfficerTags();
+        updateChecksheetSelect();
+        renderFlightTable();
+        saveToStorage();
+      } else {
+        alert("This officer is already in the list!");
+      }
+    }
+
+    function removeOfficer(index) {
+      officerPool.splice(index, 1);
+      renderOfficerTags();
+      updateChecksheetSelect();
+      renderFlightTable();
+      saveToStorage();
+    }
+
+    function renderOfficerTags() {
+      const cont = document.getElementById('officer-tags-container');
+      cont.innerHTML = "";
+      if (officerPool.length === 0) {
+        cont.innerHTML = `<span style="font-size:12px; color:var(--text-muted); font-style:italic;">No officers added yet. Add staff above.</span>`;
+        return;
+      }
+      officerPool.forEach((off, i) => {
+        const span = document.createElement('span');
+        span.className = 'officer-pill';
+        span.innerHTML = `${off} <span class="del" onclick="removeOfficer(${i})">&times;</span>`;
+        cont.appendChild(span);
+      });
+    }
+
+    function updateChecksheetSelect() {
+      const sel = document.getElementById('input-checksheet-staff');
+      const cur = sel.value;
+      sel.innerHTML = `<option value="">-- Select Staff --</option>`;
+      officerPool.forEach(off => {
+        const opt = document.createElement('option');
+        opt.value = off;
+        opt.textContent = off;
+        if (off === cur) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    // 6. Flight Allocations Table Rendering
+    function renderFlightTable() {
+      const tbody = document.getElementById('flights-tbody');
+      tbody.innerHTML = "";
+
+      flights.forEach((row, fIdx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td align="center"><b>${String(fIdx + 1).padStart(2, '0')}</b></td>
+          <td><input type="text" placeholder="101" value="${row.flight}" oninput="flights[${fIdx}].flight = this.value.toUpperCase(); saveToStorage();" /></td>
+          <td><input type="text" placeholder="1A" value="${row.gate}" oninput="flights[${fIdx}].gate = this.value.toUpperCase(); saveToStorage();" /></td>
+          <td><input type="text" placeholder="1000" value="${row.time}" oninput="flights[${fIdx}].time = this.value; saveToStorage();" /></td>
+          
+          <!-- Gate Start Trigger -->
+          <td>
+            <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'gateStart', 'GATE START STAFF')">
+              <span>${row.gateStart.length ? row.gateStart.join(', ') : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
+              <span>▾</span>
+            </div>
+          </td>
+
+          <!-- Boarding Trigger -->
+          <td>
+            <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'boarding', 'BOARDING STAFF')">
+              <span>${row.boarding.length ? row.boarding.join(', ') : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
+              <span>▾</span>
+            </div>
+          </td>
+
+          <!-- Paging Trigger -->
+          <td>
+            <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'paging', 'PAGING STAFF')">
+              <span>${row.paging.length ? row.paging.join(', ') : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
+              <span>▾</span>
+            </div>
+          </td>
+
+          <td align="center">
+            <button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteFlightRow(${fIdx})">✕</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function addFlightRow() {
+      flights.push({ flight: "", gate: "", time: "", gateStart: [], boarding: [], paging: [] });
+      renderFlightTable();
+      saveToStorage();
+    }
+
+    function deleteFlightRow(idx) {
+      if (flights.length <= 1) {
+        flights[0] = { flight: "", gate: "", time: "", gateStart: [], boarding: [], paging: [] };
+      } else {
+        flights.splice(idx, 1);
+      }
+      renderFlightTable();
+      saveToStorage();
+    }
+
+    // 7. Associate Staff Table Rendering
+    function renderAssociateTable() {
+      const tbody = document.getElementById('associates-tbody');
+      tbody.innerHTML = "";
+      associates.forEach((asso, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="text" placeholder="Associate Name" value="${asso.name}" oninput="associates[${i}].name = this.value.toUpperCase(); saveToStorage();" /></td>
+          <td>
+            <div class="popup-trigger-btn" onclick="openAssociateDutyModal(${i})">
+              <span>${asso.role || 'Select Duty'}</span>
+              <span>▾</span>
+            </div>
+          </td>
+          <td align="center"><button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteAssociateRow(${i})">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function addAssociateRow() {
+      associates.push({ name: "", role: "PAGING" });
+      renderAssociateTable();
+      saveToStorage();
+    }
+
+    function deleteAssociateRow(idx) {
+      if (associates.length <= 1) {
+        associates[0] = { name: "", role: "PAGING" };
+      } else {
+        associates.splice(idx, 1);
+      }
+      renderAssociateTable();
+      saveToStorage();
+    }
+
+    // 8. Universal Floating Popup Handlers
+    function openStaffModal(fIdx, field, title) {
+      document.getElementById('modal-title').textContent = title;
+      const listContainer = document.getElementById('modal-options-list');
+      listContainer.innerHTML = "";
+
+      const options = [...officerPool, "ASSOCIATE"];
+
+      options.forEach(name => {
+        const isChecked = flights[fIdx][field].includes(name);
+        const row = document.createElement('div');
+        row.className = 'modal-option-row';
+        row.innerHTML = `
+          <input type="checkbox" id="chk_${name}" ${isChecked ? 'checked' : ''} />
+          <label style="cursor:pointer; flex:1;" for="chk_${name}">${name}</label>
+        `;
+        row.onclick = (e) => {
+          if (e.target.tagName !== 'INPUT') {
+            const chk = row.querySelector('input');
+            chk.checked = !chk.checked;
+          }
+          toggleStaffSelection(fIdx, field, name);
+        };
+        listContainer.appendChild(row);
+      });
+
+      document.getElementById('global-dropdown-modal').style.display = 'flex';
+    }
+
+    function toggleStaffSelection(fIdx, field, name) {
+      const arr = flights[fIdx][field];
+      const pos = arr.indexOf(name);
+      if (pos > -1) {
+        arr.splice(pos, 1);
+      } else {
+        arr.push(name);
+      }
+      renderFlightTable();
+      saveToStorage();
+    }
+
+    function openAssociateDutyModal(assoIdx) {
+      document.getElementById('modal-title').textContent = 'SELECT ASSIGNED DUTY / DESK';
+      const listContainer = document.getElementById('modal-options-list');
+      listContainer.innerHTML = "";
+
+      const duties = ["PAGING", "INAD/TR/WC"];
+
+      duties.forEach(duty => {
+        const isSelected = associates[assoIdx].role === duty;
+        const row = document.createElement('div');
+        row.className = 'modal-option-row';
+        row.innerHTML = `
+          <span style="color:${isSelected ? 'var(--cyan)' : 'inherit'}; font-weight:800;">${isSelected ? '● ' : '○ '}</span>
+          <span style="font-weight:700;">${duty}</span>
+        `;
+        row.onclick = () => {
+          associates[assoIdx].role = duty;
+          renderAssociateTable();
+          saveToStorage();
+          closeDropdownModal();
+        };
+        listContainer.appendChild(row);
+      });
+
+      document.getElementById('global-dropdown-modal').style.display = 'flex';
+    }
+
+    function closeDropdownModal() {
+      document.getElementById('global-dropdown-modal').style.display = 'none';
+    }
+
+    function closeModalOnOutsideClick(e) {
+      if (e.target.id === 'global-dropdown-modal') {
+        closeDropdownModal();
+      }
+    }
+
+    // 9. Formatting Helper for BS- and C- Prefixes
+    function formatFlightNo(val) {
+      if (!val) return "-";
+      val = val.trim().toUpperCase();
+      if (val.startsWith("BS-") || val.startsWith("BS ")) return val.replace("BS ", "BS-");
+      if (val.startsWith("BS")) return "BS-" + val.slice(2).trim();
+      return "BS-" + val;
+    }
+
+    function formatGateNo(val) {
+      if (!val) return "-";
+      val = val.trim().toUpperCase();
+      if (val.startsWith("C")) return val;
+      return "C" + val;
+    }
+
+    // 10. Sync Data & Report Preview
+    function syncToFinalReport() {
+      const dateText = document.getElementById('input-date-text').value.trim().toUpperCase() || "05 SEPT 26";
+      const session = document.getElementById('input-session').value;
+      document.getElementById('rpt-date-text').textContent = `${dateText} (${session})`;
+
+      const csStaff = document.getElementById('input-checksheet-staff').value.trim().toUpperCase() || "-";
+      document.getElementById('rpt-checksheet-text').textContent = csStaff;
+
+      const note = document.getElementById('input-note').value.trim().toUpperCase() || "NO BRIEFING NOTE";
+      document.getElementById('rpt-note-text').textContent = `NOTE : ${note}`;
+
+      // Populate Flights
+      const rptTbody = document.getElementById('rpt-flights-body');
+      rptTbody.innerHTML = "";
+      flights.forEach((item, index) => {
+        const colorClass = badgeColors[index % badgeColors.length];
+        const num = String(index + 1).padStart(2, '0');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="rpt-num-pill ${colorClass}">${num}</span></td>
+          <td style="font-weight:900;">${formatFlightNo(item.flight)}</td>
+          <td style="font-weight:900;">${formatGateNo(item.gate)}</td>
+          <td style="font-family:'Chakra Petch',sans-serif; font-size:16.5px; color:#ffb703;">${item.time || '-'}</td>
+          <td>${item.gateStart.join(', ') || '-'}</td>
+          <td>${item.boarding.join(', ') || '-'}</td>
+          <td>${item.paging.join(', ') || '-'}</td>
+        `;
+        rptTbody.appendChild(tr);
+      });
+
+      // Populate Associates
+      const rptAssoList = document.getElementById('rpt-associates-list');
+      rptAssoList.innerHTML = "";
+      associates.forEach(asso => {
+        if (!asso.name && !asso.role) return;
+        const row = document.createElement('div');
+        row.className = 'brief-asso-row';
+        row.innerHTML = `
+          <span>${asso.name || '-'}</span>
+          <span>${asso.role || '-'}</span>
+        `;
+        rptAssoList.appendChild(row);
+      });
+    }
+
+    function openPreview() {
+      syncToFinalReport();
+      document.getElementById('dashboard-screen').style.display = 'none';
+      document.getElementById('report-wrapper').style.display = 'flex';
+      window.scrollTo(0, 0);
+    }
+
+    function closePreview() {
+      document.getElementById('report-wrapper').style.display = 'none';
+      document.getElementById('dashboard-screen').style.display = 'block';
+    }
+
+    // 11. Generate & Download High-Resolution JPG
+    async function generateAndDownloadJPG() {
+      syncToFinalReport();
+      const wrap = document.getElementById('report-wrapper');
+      const priorDisp = wrap.style.display;
+      wrap.style.display = 'flex';
+
+      const target = document.getElementById('report-target');
+
+      try {
+        const canvas = await html2canvas(target, {
+          scale: 2.2, // Retina HD Print Quality
+          useCORS: true,
+          logging: false,
+          backgroundColor: isDayMode ? "#f0f4fa" : "#031533"
+        });
+
+        const imgData = canvas.toDataURL("image/jpeg", 0.95);
+        const dateTag = document.getElementById('input-date-text').value.replace(/\s+/g, '_') || "TODAY";
+        const session = document.getElementById('input-session').value;
+        const modeTag = isDayMode ? "DAY" : "NIGHT";
+        const filename = `INT_GATE_ALLOCATION_${dateTag}_(${session})_${modeTag}.jpg`;
+
+        const a = document.createElement('a');
+        a.href = imgData;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err) {
+        alert("JPG Export Failed: " + err);
+      } finally {
+        if (priorDisp !== 'flex') {
+          wrap.style.display = 'none';
+        }
+      }
+    }
+
+    // Initialize application state on start
+    loadFromStorage();
+  </script>
+</body>
+</html>
