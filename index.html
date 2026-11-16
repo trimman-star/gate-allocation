@@ -283,6 +283,11 @@
       color: var(--text-main);
     }
     .btn-mode:hover { background: rgba(0, 136, 255, 0.25); }
+    .btn-upload {
+      background: #f59e0b;
+      color: #041022;
+    }
+    .btn-upload:hover { background: #d97706; color: #ffffff; }
     .btn-primary { background: #0070f3; color: white; }
     .btn-primary:hover { background: #005bc2; }
     .btn-success { background: #10b981; color: white; }
@@ -942,6 +947,8 @@
       </h2>
       <div class="dash-actions">
         <button class="btn btn-mode" id="theme-toggle-btn" onclick="toggleDayNightMode()">☀️ Day Mode</button>
+        <input type="file" id="upload-report-input" accept=".jpg,.jpeg,image/jpeg,.json" style="display:none;" onchange="handleUploadReport(event)" />
+        <button class="btn btn-upload" onclick="triggerUploadReport()" title="Upload previously generated JPG report to edit">📤 Upload JPG</button>
         <button class="btn btn-primary" onclick="openPreview()">👁 Preview Report</button>
         <button class="btn btn-success" onclick="generateAndDownloadJPG()">📥 Download JPG</button>
         <button class="btn btn-danger" onclick="logout()">Logout</button>
@@ -1163,9 +1170,11 @@
   </div>
 
   <!-- ===================================================
-       JAVASCRIPT LOGIC WITH AUTO-PERSISTENCE
+       JAVASCRIPT LOGIC WITH AUTO-PERSISTENCE & JPG RE-EDIT
        =================================================== -->
   <script>
+    const EMBED_PREFIX = "USBA_GATE_V1:";
+
     // 1. Typewriter Animation
     const typePhrase = "build by radoan rasel";
     const typeElem = document.getElementById("typewriter-target");
@@ -1188,8 +1197,7 @@
 
     // 2. Day / Night Mode Handler
     let isDayMode = false;
-    function toggleDayNightMode() {
-      isDayMode = !isDayMode;
+    function applyDayNightUI() {
       const btn = document.getElementById('theme-toggle-btn');
       if (isDayMode) {
         document.body.classList.add('day-mode');
@@ -1198,6 +1206,11 @@
         document.body.classList.remove('day-mode');
         btn.textContent = '☀️ Day Mode';
       }
+    }
+
+    function toggleDayNightMode() {
+      isDayMode = !isDayMode;
+      applyDayNightUI();
       saveToStorage();
     }
 
@@ -1218,18 +1231,28 @@
       }
     }
 
-    // 4. State Management (Starts Fresh unless restored from device storage)
+    // 4. State Management (Starts Fresh unless restored from device storage or uploaded file)
     let officerPool = [];
     let flights = [];
     let associates = [];
 
     const badgeColors = ["bg-num-1", "bg-num-2", "bg-num-3", "bg-num-4", "bg-num-5", "bg-num-6", "bg-num-7"];
 
+    function escapeAttr(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
     function resetFreshState() {
       officerPool = [];
       flights = [{ flight: "", gate: "", time: "", gateStart: [], boarding: [], paging: [] }];
       associates = [{ name: "", role: "PAGING" }];
       document.getElementById('input-note').value = "";
+      isDayMode = false;
+      applyDayNightUI();
       initDate();
       renderOfficerTags();
       updateChecksheetSelect();
@@ -1237,9 +1260,8 @@
       renderAssociateTable();
     }
 
-    // Device Storage Auto-Save Engine
-    function saveToStorage() {
-      const data = {
+    function buildCurrentStateObject() {
+      return {
         officerPool,
         flights,
         associates,
@@ -1250,6 +1272,62 @@
         note: document.getElementById('input-note').value,
         isDayMode
       };
+    }
+
+    function applyStateObject(d) {
+      officerPool = Array.isArray(d.officerPool) ? d.officerPool : [];
+      flights = Array.isArray(d.flights) ? d.flights.map(f => ({
+        flight: f.flight || "",
+        gate: f.gate || "",
+        time: f.time || "",
+        gateStart: Array.isArray(f.gateStart) ? f.gateStart : [],
+        boarding: Array.isArray(f.boarding) ? f.boarding : [],
+        paging: Array.isArray(f.paging) ? f.paging : []
+      })) : [];
+      associates = Array.isArray(d.associates) ? d.associates.map(a => ({
+        name: a.name || "",
+        role: a.role || "PAGING"
+      })) : [];
+
+      if (flights.length === 0) flights = [{ flight: "", gate: "", time: "", gateStart: [], boarding: [], paging: [] }];
+      if (associates.length === 0) associates = [{ name: "", role: "PAGING" }];
+
+      document.getElementById('input-date').value = d.dateVal || "";
+      document.getElementById('input-date-text').value = d.dateText || "";
+      document.getElementById('input-session').value = d.session || "EVENING";
+      document.getElementById('input-note').value = d.note || "";
+
+      if (!d.dateVal && !d.dateText) {
+        initDate();
+      }
+
+      renderOfficerTags();
+      updateChecksheetSelect();
+
+      const csSelect = document.getElementById('input-checksheet-staff');
+      if (d.checksheetStaff) {
+        // Ensure option exists if checksheetStaff isn't in officerPool
+        if (!officerPool.includes(d.checksheetStaff)) {
+          const opt = document.createElement('option');
+          opt.value = d.checksheetStaff;
+          opt.textContent = d.checksheetStaff;
+          csSelect.appendChild(opt);
+        }
+        csSelect.value = d.checksheetStaff;
+      } else {
+        csSelect.value = "";
+      }
+
+      isDayMode = Boolean(d.isDayMode);
+      applyDayNightUI();
+
+      renderFlightTable();
+      renderAssociateTable();
+    }
+
+    // Device Storage Auto-Save Engine
+    function saveToStorage() {
+      const data = buildCurrentStateObject();
       localStorage.setItem('usb_gate_ops_data', JSON.stringify(data));
     }
 
@@ -1258,30 +1336,7 @@
       if (stored) {
         try {
           const d = JSON.parse(stored);
-          officerPool = d.officerPool || [];
-          flights = d.flights || [];
-          associates = d.associates || [];
-          
-          if (flights.length === 0) flights = [{ flight: "", gate: "", time: "", gateStart: [], boarding: [], paging: [] }];
-          if (associates.length === 0) associates = [{ name: "", role: "PAGING" }];
-
-          if (d.dateVal) document.getElementById('input-date').value = d.dateVal;
-          if (d.dateText) document.getElementById('input-date-text').value = d.dateText;
-          if (d.session) document.getElementById('input-session').value = d.session;
-          if (d.note) document.getElementById('input-note').value = d.note;
-
-          renderOfficerTags();
-          updateChecksheetSelect();
-          if (d.checksheetStaff) document.getElementById('input-checksheet-staff').value = d.checksheetStaff;
-
-          if (d.isDayMode) {
-            isDayMode = true;
-            document.body.classList.add('day-mode');
-            document.getElementById('theme-toggle-btn').textContent = '🌙 Night Mode';
-          }
-
-          renderFlightTable();
-          renderAssociateTable();
+          applyStateObject(d);
           return;
         } catch(e) {
           console.error("Storage parse error", e);
@@ -1344,7 +1399,7 @@
       officerPool.forEach((off, i) => {
         const span = document.createElement('span');
         span.className = 'officer-pill';
-        span.innerHTML = `${off} <span class="del" onclick="removeOfficer(${i})">&times;</span>`;
+        span.innerHTML = `${escapeAttr(off)} <span class="del" onclick="removeOfficer(${i})">&times;</span>`;
         cont.appendChild(span);
       });
     }
@@ -1371,14 +1426,14 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td align="center"><b>${String(fIdx + 1).padStart(2, '0')}</b></td>
-          <td><input type="text" placeholder="101" value="${row.flight}" oninput="flights[${fIdx}].flight = this.value.toUpperCase(); saveToStorage();" /></td>
-          <td><input type="text" placeholder="1A" value="${row.gate}" oninput="flights[${fIdx}].gate = this.value.toUpperCase(); saveToStorage();" /></td>
-          <td><input type="text" placeholder="1000" value="${row.time}" oninput="flights[${fIdx}].time = this.value; saveToStorage();" /></td>
+          <td><input type="text" placeholder="101" value="${escapeAttr(row.flight)}" oninput="flights[${fIdx}].flight = this.value.toUpperCase(); saveToStorage();" /></td>
+          <td><input type="text" placeholder="1A" value="${escapeAttr(row.gate)}" oninput="flights[${fIdx}].gate = this.value.toUpperCase(); saveToStorage();" /></td>
+          <td><input type="text" placeholder="1000" value="${escapeAttr(row.time)}" oninput="flights[${fIdx}].time = this.value; saveToStorage();" /></td>
           
           <!-- Gate Start Trigger -->
           <td>
             <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'gateStart', 'GATE START STAFF')">
-              <span>${row.gateStart.length ? row.gateStart.join(', ') : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
+              <span>${row.gateStart.length ? escapeAttr(row.gateStart.join(', ')) : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
               <span>▾</span>
             </div>
           </td>
@@ -1386,7 +1441,7 @@
           <!-- Boarding Trigger -->
           <td>
             <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'boarding', 'BOARDING STAFF')">
-              <span>${row.boarding.length ? row.boarding.join(', ') : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
+              <span>${row.boarding.length ? escapeAttr(row.boarding.join(', ')) : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
               <span>▾</span>
             </div>
           </td>
@@ -1394,7 +1449,7 @@
           <!-- Paging Trigger -->
           <td>
             <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'paging', 'PAGING STAFF')">
-              <span>${row.paging.length ? row.paging.join(', ') : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
+              <span>${row.paging.length ? escapeAttr(row.paging.join(', ')) : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
               <span>▾</span>
             </div>
           </td>
@@ -1430,10 +1485,10 @@
       associates.forEach((asso, i) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><input type="text" placeholder="Associate Name" value="${asso.name}" oninput="associates[${i}].name = this.value.toUpperCase(); saveToStorage();" /></td>
+          <td><input type="text" placeholder="Associate Name" value="${escapeAttr(asso.name)}" oninput="associates[${i}].name = this.value.toUpperCase(); saveToStorage();" /></td>
           <td>
             <div class="popup-trigger-btn" onclick="openAssociateDutyModal(${i})">
-              <span>${asso.role || 'Select Duty'}</span>
+              <span>${escapeAttr(asso.role) || 'Select Duty'}</span>
               <span>▾</span>
             </div>
           </td>
@@ -1467,13 +1522,14 @@
 
       const options = [...officerPool, "ASSOCIATE"];
 
-      options.forEach(name => {
+      options.forEach((name, idx) => {
         const isChecked = flights[fIdx][field].includes(name);
         const row = document.createElement('div');
         row.className = 'modal-option-row';
+        const chkId = `chk_${idx}`;
         row.innerHTML = `
-          <input type="checkbox" id="chk_${name}" ${isChecked ? 'checked' : ''} />
-          <label style="cursor:pointer; flex:1;" for="chk_${name}">${name}</label>
+          <input type="checkbox" id="${chkId}" ${isChecked ? 'checked' : ''} />
+          <label style="cursor:pointer; flex:1;" for="${chkId}">${escapeAttr(name)}</label>
         `;
         row.onclick = (e) => {
           if (e.target.tagName !== 'INPUT') {
@@ -1574,12 +1630,12 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><span class="rpt-num-pill ${colorClass}">${num}</span></td>
-          <td style="font-weight:900;">${formatFlightNo(item.flight)}</td>
-          <td style="font-weight:900;">${formatGateNo(item.gate)}</td>
-          <td style="font-family:'Chakra Petch',sans-serif; font-size:16.5px; color:#ffb703;">${item.time || '-'}</td>
-          <td>${item.gateStart.join(', ') || '-'}</td>
-          <td>${item.boarding.join(', ') || '-'}</td>
-          <td>${item.paging.join(', ') || '-'}</td>
+          <td style="font-weight:900;">${escapeAttr(formatFlightNo(item.flight))}</td>
+          <td style="font-weight:900;">${escapeAttr(formatGateNo(item.gate))}</td>
+          <td style="font-family:'Chakra Petch',sans-serif; font-size:16.5px; color:#ffb703;">${escapeAttr(item.time) || '-'}</td>
+          <td>${escapeAttr(item.gateStart.join(', ')) || '-'}</td>
+          <td>${escapeAttr(item.boarding.join(', ')) || '-'}</td>
+          <td>${escapeAttr(item.paging.join(', ')) || '-'}</td>
         `;
         rptTbody.appendChild(tr);
       });
@@ -1592,8 +1648,8 @@
         const row = document.createElement('div');
         row.className = 'brief-asso-row';
         row.innerHTML = `
-          <span>${asso.name || '-'}</span>
-          <span>${asso.role || '-'}</span>
+          <span>${escapeAttr(asso.name) || '-'}</span>
+          <span>${escapeAttr(asso.role) || '-'}</span>
         `;
         rptAssoList.appendChild(row);
       });
@@ -1611,7 +1667,144 @@
       document.getElementById('dashboard-screen').style.display = 'block';
     }
 
-    // 11. Generate & Download High-Resolution JPG
+    // 11. JPEG Metadata Embed & Extract Helpers
+    function embedStateInJpeg(origBytes, stateObj) {
+      const payloadBytes = new TextEncoder().encode(EMBED_PREFIX + JSON.stringify(stateObj));
+      const segLen = payloadBytes.length + 2;
+
+      // Verify JPEG SOI (FF D8) and standard COM segment limit (65535 bytes)
+      if (origBytes.length >= 2 && origBytes[0] === 0xFF && origBytes[1] === 0xD8 && segLen <= 65535) {
+        const finalBytes = new Uint8Array(origBytes.length + 4 + payloadBytes.length);
+        finalBytes[0] = 0xFF;
+        finalBytes[1] = 0xD8;
+        finalBytes[2] = 0xFF;
+        finalBytes[3] = 0xFE; // JPEG COM (Comment) marker
+        finalBytes[4] = (segLen >> 8) & 0xFF;
+        finalBytes[5] = segLen & 0xFF;
+        finalBytes.set(payloadBytes, 6);
+        finalBytes.set(origBytes.subarray(2), 6 + payloadBytes.length);
+        return finalBytes;
+      }
+      return origBytes;
+    }
+
+    function extractStateFromBytes(bytes) {
+      // 1) Try standard JPEG COM marker parsing
+      if (bytes.length >= 4 && bytes[0] === 0xFF && bytes[1] === 0xD8) {
+        let offset = 2;
+        while (offset + 4 <= bytes.length) {
+          if (bytes[offset] !== 0xFF) break;
+          while (offset < bytes.length && bytes[offset] === 0xFF) offset++;
+          if (offset >= bytes.length) break;
+
+          const marker = bytes[offset];
+          offset++;
+
+          // SOS (0xDA) or EOI (0xD9) means image data starts/ends
+          if (marker === 0xDA || marker === 0xD9) break;
+          // Markers without length payload
+          if (marker === 0x00 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) continue;
+
+          if (offset + 2 > bytes.length) break;
+          const segLen = (bytes[offset] << 8) | bytes[offset + 1];
+          if (segLen < 2 || offset + segLen > bytes.length) break;
+
+          if (marker === 0xFE) {
+            const text = new TextDecoder().decode(bytes.subarray(offset + 2, offset + segLen));
+            if (text.startsWith(EMBED_PREFIX)) {
+              return JSON.parse(text.slice(EMBED_PREFIX.length));
+            }
+          }
+          offset += segLen;
+        }
+      }
+
+      // 2) Fallback: Scan raw bytes for EMBED_PREFIX
+      const prefixBytes = new TextEncoder().encode(EMBED_PREFIX);
+      for (let i = 0; i <= bytes.length - prefixBytes.length; i++) {
+        let match = true;
+        for (let j = 0; j < prefixBytes.length; j++) {
+          if (bytes[i + j] !== prefixBytes[j]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          const slice = bytes.subarray(i + prefixBytes.length, Math.min(bytes.length, i + prefixBytes.length + 65535));
+          const rawStr = new TextDecoder().decode(slice);
+          // Read balanced JSON object
+          let depth = 0, inStr = false, esc = false, endIdx = -1;
+          for (let k = 0; k < rawStr.length; k++) {
+            const ch = rawStr[k];
+            if (esc) { esc = false; continue; }
+            if (ch === '\\' && inStr) { esc = true; continue; }
+            if (ch === '"') { inStr = !inStr; continue; }
+            if (!inStr) {
+              if (ch === '{') depth++;
+              else if (ch === '}') {
+                depth--;
+                if (depth === 0) { endIdx = k + 1; break; }
+              }
+            }
+          }
+          if (endIdx > 0) {
+            return JSON.parse(rawStr.slice(0, endIdx));
+          }
+        }
+      }
+
+      // 3) Fallback: Check if user uploaded a plain .json file
+      const textAttempt = new TextDecoder().decode(bytes).trim();
+      if (textAttempt.startsWith("{")) {
+        const parsed = JSON.parse(textAttempt);
+        if (parsed && (Array.isArray(parsed.flights) || Array.isArray(parsed.officerPool))) {
+          return parsed;
+        }
+      }
+
+      return null;
+    }
+
+    // 12. Upload Generated File & Restore Into Editor
+    function triggerUploadReport() {
+      document.getElementById('upload-report-input').click();
+    }
+
+    function handleUploadReport(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const bytes = new Uint8Array(e.target.result);
+          const restoredState = extractStateFromBytes(bytes);
+
+          if (!restoredState) {
+            alert("No editable gate allocation data was found in this file.\nPlease upload the original JPG file generated by this app.");
+            return;
+          }
+
+          applyStateObject(restoredState);
+          saveToStorage();
+
+          // Ensure editor dashboard is active
+          document.getElementById('report-wrapper').style.display = 'none';
+          document.getElementById('dashboard-screen').style.display = 'block';
+          window.scrollTo(0, 0);
+
+          alert("✅ Report loaded into editor! You can now modify any details, preview, and download again.");
+        } catch (err) {
+          console.error(err);
+          alert("Failed to read uploaded file: " + err.message);
+        } finally {
+          event.target.value = "";
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // 13. Generate & Download High-Resolution JPG (With Embedded Editable State)
     async function generateAndDownloadJPG() {
       syncToFinalReport();
       const wrap = document.getElementById('report-wrapper');
@@ -1629,17 +1822,30 @@
         });
 
         const imgData = canvas.toDataURL("image/jpeg", 0.95);
+        const base64 = imgData.split(',')[1];
+        const binaryStr = atob(base64);
+        const origBytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          origBytes[i] = binaryStr.charCodeAt(i);
+        }
+
+        const stateObj = buildCurrentStateObject();
+        const finalBytes = embedStateInJpeg(origBytes, stateObj);
+        const blob = new Blob([finalBytes], { type: "image/jpeg" });
+        const blobUrl = URL.createObjectURL(blob);
+
         const dateTag = document.getElementById('input-date-text').value.replace(/\s+/g, '_') || "TODAY";
         const session = document.getElementById('input-session').value;
         const modeTag = isDayMode ? "DAY" : "NIGHT";
         const filename = `INT_GATE_ALLOCATION_${dateTag}_(${session})_${modeTag}.jpg`;
 
         const a = document.createElement('a');
-        a.href = imgData;
+        a.href = blobUrl;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
       } catch (err) {
         alert("JPG Export Failed: " + err);
       } finally {
