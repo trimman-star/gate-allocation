@@ -571,10 +571,12 @@
       padding: 25px 15px;
       min-height: 100vh;
       background: #01060f;
+      overflow-x: auto;
     }
 
     .report-card-container {
       width: 1180px;
+      min-width: 1180px;
       background: var(--rpt-bg);
       border: 2px solid var(--rpt-border);
       border-radius: 14px;
@@ -947,8 +949,8 @@
       </h2>
       <div class="dash-actions">
         <button class="btn btn-mode" id="theme-toggle-btn" onclick="toggleDayNightMode()">☀️ Day Mode</button>
-        <input type="file" id="upload-report-input" accept=".jpg,.jpeg,image/jpeg,.json" style="display:none;" onchange="handleUploadReport(event)" />
-        <button class="btn btn-upload" onclick="triggerUploadReport()" title="Upload previously generated JPG report to edit">📤 Upload JPG</button>
+        <input type="file" id="upload-report-input" accept=".jpg,.jpeg,.json,image/jpeg" style="display:none;" onchange="handleUploadReport(event)" />
+        <button class="btn btn-upload" onclick="triggerUploadReport()" title="Upload a JPG generated from any device to edit">📤 Upload JPG</button>
         <button class="btn btn-primary" onclick="openPreview()">👁 Preview Report</button>
         <button class="btn btn-success" onclick="generateAndDownloadJPG()">📥 Download JPG</button>
         <button class="btn btn-danger" onclick="logout()">Logout</button>
@@ -1170,7 +1172,7 @@
   </div>
 
   <!-- ===================================================
-       JAVASCRIPT LOGIC WITH AUTO-PERSISTENCE & JPG RE-EDIT
+       JAVASCRIPT LOGIC WITH CROSS-DEVICE JPG RE-EDIT
        =================================================== -->
   <script>
     const EMBED_PREFIX = "USBA_GATE_V1:";
@@ -1231,7 +1233,7 @@
       }
     }
 
-    // 4. State Management (Starts Fresh unless restored from device storage or uploaded file)
+    // 4. State Management
     let officerPool = [];
     let flights = [];
     let associates = [];
@@ -1306,7 +1308,6 @@
 
       const csSelect = document.getElementById('input-checksheet-staff');
       if (d.checksheetStaff) {
-        // Ensure option exists if checksheetStaff isn't in officerPool
         if (!officerPool.includes(d.checksheetStaff)) {
           const opt = document.createElement('option');
           opt.value = d.checksheetStaff;
@@ -1430,7 +1431,6 @@
           <td><input type="text" placeholder="1A" value="${escapeAttr(row.gate)}" oninput="flights[${fIdx}].gate = this.value.toUpperCase(); saveToStorage();" /></td>
           <td><input type="text" placeholder="1000" value="${escapeAttr(row.time)}" oninput="flights[${fIdx}].time = this.value; saveToStorage();" /></td>
           
-          <!-- Gate Start Trigger -->
           <td>
             <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'gateStart', 'GATE START STAFF')">
               <span>${row.gateStart.length ? escapeAttr(row.gateStart.join(', ')) : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
@@ -1438,7 +1438,6 @@
             </div>
           </td>
 
-          <!-- Boarding Trigger -->
           <td>
             <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'boarding', 'BOARDING STAFF')">
               <span>${row.boarding.length ? escapeAttr(row.boarding.join(', ')) : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
@@ -1446,7 +1445,6 @@
             </div>
           </td>
 
-          <!-- Paging Trigger -->
           <td>
             <div class="popup-trigger-btn" onclick="openStaffModal(${fIdx}, 'paging', 'PAGING STAFF')">
               <span>${row.paging.length ? escapeAttr(row.paging.join(', ')) : '<span style="color:var(--text-muted)">Select Staff</span>'}</span>
@@ -1621,7 +1619,6 @@
       const note = document.getElementById('input-note').value.trim().toUpperCase() || "NO BRIEFING NOTE";
       document.getElementById('rpt-note-text').textContent = `NOTE : ${note}`;
 
-      // Populate Flights
       const rptTbody = document.getElementById('rpt-flights-body');
       rptTbody.innerHTML = "";
       flights.forEach((item, index) => {
@@ -1640,7 +1637,6 @@
         rptTbody.appendChild(tr);
       });
 
-      // Populate Associates
       const rptAssoList = document.getElementById('rpt-associates-list');
       rptAssoList.innerHTML = "";
       associates.forEach(asso => {
@@ -1672,13 +1668,12 @@
       const payloadBytes = new TextEncoder().encode(EMBED_PREFIX + JSON.stringify(stateObj));
       const segLen = payloadBytes.length + 2;
 
-      // Verify JPEG SOI (FF D8) and standard COM segment limit (65535 bytes)
       if (origBytes.length >= 2 && origBytes[0] === 0xFF && origBytes[1] === 0xD8 && segLen <= 65535) {
         const finalBytes = new Uint8Array(origBytes.length + 4 + payloadBytes.length);
         finalBytes[0] = 0xFF;
         finalBytes[1] = 0xD8;
         finalBytes[2] = 0xFF;
-        finalBytes[3] = 0xFE; // JPEG COM (Comment) marker
+        finalBytes[3] = 0xFE; // Standard JPEG COM marker
         finalBytes[4] = (segLen >> 8) & 0xFF;
         finalBytes[5] = segLen & 0xFF;
         finalBytes.set(payloadBytes, 6);
@@ -1689,7 +1684,7 @@
     }
 
     function extractStateFromBytes(bytes) {
-      // 1) Try standard JPEG COM marker parsing
+      // 1) Standard JPEG COM marker parsing
       if (bytes.length >= 4 && bytes[0] === 0xFF && bytes[1] === 0xD8) {
         let offset = 2;
         while (offset + 4 <= bytes.length) {
@@ -1700,9 +1695,7 @@
           const marker = bytes[offset];
           offset++;
 
-          // SOS (0xDA) or EOI (0xD9) means image data starts/ends
           if (marker === 0xDA || marker === 0xD9) break;
-          // Markers without length payload
           if (marker === 0x00 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) continue;
 
           if (offset + 2 > bytes.length) break;
@@ -1719,7 +1712,7 @@
         }
       }
 
-      // 2) Fallback: Scan raw bytes for EMBED_PREFIX
+      // 2) Fallback: Raw scan for EMBED_PREFIX
       const prefixBytes = new TextEncoder().encode(EMBED_PREFIX);
       for (let i = 0; i <= bytes.length - prefixBytes.length; i++) {
         let match = true;
@@ -1732,7 +1725,6 @@
         if (match) {
           const slice = bytes.subarray(i + prefixBytes.length, Math.min(bytes.length, i + prefixBytes.length + 65535));
           const rawStr = new TextDecoder().decode(slice);
-          // Read balanced JSON object
           let depth = 0, inStr = false, esc = false, endIdx = -1;
           for (let k = 0; k < rawStr.length; k++) {
             const ch = rawStr[k];
@@ -1753,7 +1745,7 @@
         }
       }
 
-      // 3) Fallback: Check if user uploaded a plain .json file
+      // 3) Fallback: Plain .json file
       const textAttempt = new TextDecoder().decode(bytes).trim();
       if (textAttempt.startsWith("{")) {
         const parsed = JSON.parse(textAttempt);
@@ -1765,7 +1757,7 @@
       return null;
     }
 
-    // 12. Upload Generated File & Restore Into Editor
+    // 12. Upload Generated File & Restore Into Editor (Works Across Any Device)
     function triggerUploadReport() {
       document.getElementById('upload-report-input').click();
     }
@@ -1781,14 +1773,17 @@
           const restoredState = extractStateFromBytes(bytes);
 
           if (!restoredState) {
-            alert("No editable gate allocation data was found in this file.\nPlease upload the original JPG file generated by this app.");
+            alert(
+              "No editable gate allocation data was found in this file.\n\n" +
+              "• Make sure this JPG was downloaded from this updated app.\n" +
+              "• If transferring between devices via WhatsApp/Messenger, send it as a 'Document / File' (sending as a regular Photo strips hidden editable data)."
+            );
             return;
           }
 
           applyStateObject(restoredState);
           saveToStorage();
 
-          // Ensure editor dashboard is active
           document.getElementById('report-wrapper').style.display = 'none';
           document.getElementById('dashboard-screen').style.display = 'block';
           window.scrollTo(0, 0);
@@ -1804,7 +1799,37 @@
       reader.readAsArrayBuffer(file);
     }
 
-    // 13. Generate & Download High-Resolution JPG (With Embedded Editable State)
+    // 13. Generate & Download High-Resolution JPG (With Cross-Device CORS Fallback)
+    async function captureReportDataUrl(target) {
+      try {
+        const canvas = await html2canvas(target, {
+          scale: 2.2,
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          backgroundColor: isDayMode ? "#f0f4fa" : "#031533"
+        });
+        return canvas.toDataURL("image/jpeg", 0.95);
+      } catch (corsErr) {
+        // Fallback if external watermark image is blocked on a device/network
+        const watermark = target.querySelector('.report-watermark-layer');
+        const prevDisplay = watermark ? watermark.style.display : '';
+        if (watermark) watermark.style.display = 'none';
+        try {
+          const canvas = await html2canvas(target, {
+            scale: 2.2,
+            useCORS: false,
+            allowTaint: false,
+            logging: false,
+            backgroundColor: isDayMode ? "#f0f4fa" : "#031533"
+          });
+          return canvas.toDataURL("image/jpeg", 0.95);
+        } finally {
+          if (watermark) watermark.style.display = prevDisplay;
+        }
+      }
+    }
+
     async function generateAndDownloadJPG() {
       syncToFinalReport();
       const wrap = document.getElementById('report-wrapper');
@@ -1814,14 +1839,7 @@
       const target = document.getElementById('report-target');
 
       try {
-        const canvas = await html2canvas(target, {
-          scale: 2.2, // Retina HD Print Quality
-          useCORS: true,
-          logging: false,
-          backgroundColor: isDayMode ? "#f0f4fa" : "#031533"
-        });
-
-        const imgData = canvas.toDataURL("image/jpeg", 0.95);
+        const imgData = await captureReportDataUrl(target);
         const base64 = imgData.split(',')[1];
         const binaryStr = atob(base64);
         const origBytes = new Uint8Array(binaryStr.length);
@@ -1845,7 +1863,7 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
       } catch (err) {
         alert("JPG Export Failed: " + err);
       } finally {
